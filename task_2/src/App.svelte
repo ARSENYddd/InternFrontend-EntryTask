@@ -1,39 +1,32 @@
 <script>
-  import axios from 'axios';
+  import { onMount } from 'svelte';
   import CurrencyPair from './components/CurrencyPair.svelte';
   import AmountInput from './components/AmountInput.svelte';
+  import { fetchAvailableCurrencies } from './currencyService';
+  import { fetchExchangeRate } from './currencyService';
 
+  let currencies = [];
+  let fromCurrency = '';
+  let toCurrency = '';
+  let amount = 0;
   let exchangeRate = 0;
-  let fromCurrency = 'USD';
-  let toCurrency = 'EUR';
-  let amount = 13;
+  let convertedAmount = 0;
 
-  async function fetchExchangeRate(fromCurrency, toCurrency) {
-    try {
-      const response = await axios.get(`https://api.exchangerate-api.com/v4/latest/${fromCurrency}`);
-      const data = response.data;
-      return data.rates[toCurrency];
-    } catch (error) {
-      console.error('Error fetching exchange rate:', error);
-      return null;
-    }
-  }
+  onMount(async () => {
+    currencies = await fetchAvailableCurrencies();
+  });
 
   async function calculateExchange() {
-    console.log('Calculating exchange...'); // Добавим вывод в консоль для отслеживания вызовов функции
     if (!fromCurrency || !toCurrency || !amount) return;
 
     exchangeRate = await fetchExchangeRate(fromCurrency, toCurrency);
 
     if (exchangeRate !== null) {
-      console.log('Exchange rate:', exchangeRate); // Добавим вывод обменного курса в консоль
       convertedAmount = amount * exchangeRate;
     } else {
       console.error('Error fetching exchange rate');
     }
   }
-
-  let convertedAmount = 0;
 
   $: {
     calculateExchange();
@@ -42,14 +35,35 @@
   function handleInputChange() {
     calculateExchange();
   }
+
+  // Реактивная переменная для отслеживания изменений в сумме
+  let reactiveAmount = amount;
+
+  $: {
+    console.log('Amount changed:', amount);
+    handleInputChange();
+  }
 </script>
 
 <main>
   <h1>Currency Converter</h1>
-  
-  <CurrencyPair bind:fromCurrency bind:toCurrency />
-  <AmountInput bind:amount on:input={handleInputChange} />
-  
+
+  <div>
+    <label>From:</label>
+    <CurrencyPair bind:selectedCurrency={fromCurrency} {currencies} />
+  </div>
+
+  <div>
+    <label>To:</label>
+    <CurrencyPair bind:selectedCurrency={toCurrency} {currencies} />
+  </div>
+
+  <div>
+    <label>Amount:</label>
+    <!-- Используем reactiveAmount вместо amount -->
+    <AmountInput bind:amount={amount}  />
+  </div>
+
   {#if exchangeRate !== 0}
     <p>{amount} {fromCurrency} equals {convertedAmount.toFixed(2)} {toCurrency}</p>
   {:else}
